@@ -35,22 +35,24 @@ public class JSONLWriter {
     }
 
     /// Writes a single JSON object (encoded as `Data`) to the file
-    public func write(jsonData: Data) {
+    public func write(jsonData: Data) throws {
         do {
             try fileHandle.write(contentsOf: jsonData)
             try fileHandle.write(contentsOf: Data("\n".utf8)) // Add newline for JSONL format
         } catch {
             logger.error("Error writing to file: \(error)")
+            throw error
         }
     }
 
     /// Writes a single `Encodable` object to the file as JSONL
-    public func write<T: Encodable>(jsonObject: T) {
+    public func write<T: Encodable>(jsonObject: T) throws {
         do {
             let jsonData = try JSONEncoder().encode(jsonObject)
-            write(jsonData: jsonData)
+            try write(jsonData: jsonData)
         } catch {
             logger.error("Error encoding object: \(error)")
+            throw error
         }
     }
 
