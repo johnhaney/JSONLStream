@@ -117,3 +117,56 @@ public class JSONLReader {
         }
     }
 }
+
+public extension JSONLReader {
+    func iterate(processData: @escaping (Data, inout Bool) -> Void) throws {
+        let fileHandle = try FileHandle(forReadingFrom: fileURL)
+        defer {
+            do {
+                try fileHandle.close()
+            } catch {
+                logger.error("Error closing file handle: \(error.localizedDescription)")
+            }
+        }
+        
+        let newline = Data("\n".utf8)
+        
+        var buffer = Data()
+
+        var shouldContinue = true
+        
+        while let chunk = try? fileHandle.read(upToCount: 1024),
+              !chunk.isEmpty {
+            buffer.append(chunk)
+            
+            // divide the buffer as long as we keep finding \n characters
+            while let range = buffer.range(of: newline) {
+                let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
+                buffer.removeSubrange(buffer.startIndex..<range.upperBound)
+                
+                // send out the data blob we found
+                if !lineData.isEmpty {
+                    processData(lineData, &shouldContinue)
+                    if !shouldContinue {
+                        break
+                    }
+                }
+            }
+            if !shouldContinue {
+                break
+            }
+        }
+
+        if !buffer.isEmpty {
+            processData(buffer, &shouldContinue)
+        }
+    }
+    
+    func iterate<T: Decodable>(processObject: @escaping (T, inout Bool) -> Void) throws {
+        try self.iterate { data, shouldContinue in
+            if let object = try? JSONDecoder().decode(T.self, from: data) {
+                processObject(object, &shouldContinue)
+            }
+        }
+    }
+}
