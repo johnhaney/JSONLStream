@@ -47,7 +47,7 @@ public class JSONLReader {
         AsyncStream { continuation in
             let dataLines = self.dataLines()
             let decoder = JSONDecoder()
-            Task {
+            let task = Task {
                 defer { continuation.finish() }
                 for await data in dataLines {
                     // try to decode each data blob
@@ -64,13 +64,16 @@ public class JSONLReader {
                     }
                 }
             }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
         }
     }
     
     public func dataLines() -> AsyncStream<Data> {
         let fileURL = self.fileURL
         return AsyncStream { continuation in
-            Task {
+            let task = Task {
                 defer { continuation.finish() }
                 do {
                     let fileHandle = try FileHandle(forReadingFrom: fileURL)
@@ -112,6 +115,9 @@ public class JSONLReader {
                 } catch {
                     logger.error("Error reading data from file: \(error.localizedDescription)")
                 }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
             }
         }
     }
